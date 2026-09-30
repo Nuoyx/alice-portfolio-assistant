@@ -1,24 +1,35 @@
 import logging
+import secrets
+import os
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from memory.redis_memory import RedisConversationMemory
 from service.chat_service import ChatService
+from dotenv import load_dotenv
 
+load_dotenv()
 logger = logging.getLogger(__name__)
-
 router = APIRouter(
     prefix="/api/chat",
     tags=["chat"],
 )
 
-chat_service = ChatService()
+
+memory = RedisConversationMemory(
+    redis_url=os.getenv("REDIS_URL"),
+    ttl=int(os.getenv("SESSION_TTL", "86400")),
+)
+chat_service = ChatService(memory)
 
 
 class ChatRequest(BaseModel):
+    conversationId: str | None = None
     message: str
 
 
 class ChatResponse(BaseModel):
+    conversationId: str
     response: str
 
 
@@ -26,7 +37,18 @@ class ChatResponse(BaseModel):
 async def chat(request: ChatRequest) -> ChatResponse:
     logger.info("Chat endpoint called")
     logger.info("Chat input: %s", request.message)
-    response = await chat_service.chat(request.message)
 
-    return ChatResponse(response=response)
+    conversation_id = request.conversationId
 
+    if conversation_id is None:
+        conversation_id = secrets.token_urlsafe(32)
+
+    response = await chat_service.chat(
+        conversation_id=conversation_id,
+        user_message=request.message,
+    )
+
+    return ChatResponse(
+        conversation_id=conversation_id,
+        response=response,
+    )
