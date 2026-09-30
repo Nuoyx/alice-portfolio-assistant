@@ -8,6 +8,7 @@ from langchain_core.messages import (
 
 from model.chat_model import create_chat_model
 from prompts.system_prompt import build_system_prompt
+from rag.retriever import retrieve_documents
 from memory.redis_memory import (
     MemoryUnavailableError,
     RedisConversationMemory,
@@ -44,10 +45,22 @@ class ChatService:
             stored_messages = await self.memory.load(conversation_id)
             history = self._to_messages(stored_messages)
 
+            documents = retrieve_documents(message)
+            context = "\n\n".join(
+                document.page_content
+                for document in documents
+            )
             messages = [
                 SystemMessage(content=self.system_prompt),
                 *history,
-                HumanMessage(content=message),
+                HumanMessage(
+                    content=f"""
+                    Relevant portfolio information:
+                    {context}
+                    User question:
+                    {message}
+                    """
+                ),
             ]
 
             response = await self.model.ainvoke(messages)
@@ -120,3 +133,4 @@ class ChatService:
             return "".join(parts).strip()
 
         return str(content).strip()
+
