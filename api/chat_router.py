@@ -48,7 +48,9 @@ async def chat(request: ChatRequest) -> ChatResponse:
         user_message=request.message,
     )
 
+    print(conversation_id)
+
     return ChatResponse(
-        conversation_id=conversation_id,
+        conversationId=conversation_id,
         response=response,
     )

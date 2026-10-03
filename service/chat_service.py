@@ -13,7 +13,7 @@ from memory.redis_memory import (
     MemoryUnavailableError,
     RedisConversationMemory,
 )
-
+from skills.selector import get_skill, select_skill
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +32,6 @@ class ChatService:
         user_message: str,
     ) -> str:
         message = user_message.strip()
-
         if not message:
             raise ValueError("Message must not be empty.")
 
@@ -45,13 +44,19 @@ class ChatService:
             stored_messages = await self.memory.load(conversation_id)
             history = self._to_messages(stored_messages)
 
+            skill_name = await select_skill(self.model, message)
+            skill = get_skill(skill_name)
+
             documents = retrieve_documents(message)
             context = "\n\n".join(
                 document.page_content
                 for document in documents
             )
             messages = [
-                SystemMessage(content=self.system_prompt),
+                SystemMessage(content=f"""
+                {self.system_prompt} 
+                Current skill: {skill}
+                """),
                 *history,
                 HumanMessage(
                     content=f"""
