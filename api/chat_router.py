@@ -1,7 +1,7 @@
 import logging
 import secrets
 import os
-from fastapi import APIRouter
+from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel
 
 from memory.redis_memory import RedisConversationMemory
@@ -24,33 +24,35 @@ chat_service = ChatService(memory)
 
 
 class ChatRequest(BaseModel):
-    conversationId: str | None = None
     message: str
 
 
 class ChatResponse(BaseModel):
-    conversationId: str
     response: str
 
 
 @router.post("", response_model=ChatResponse)
-async def chat(request: ChatRequest) -> ChatResponse:
-    logger.info("Chat endpoint called")
+async def chat(
+        request: ChatRequest,
+        response: Response,
+        session_id: str | None = Cookie(default=None, alias="sessionId"),
+) -> ChatResponse:
     logger.info("Chat input: %s", request.message)
 
-    conversation_id = request.conversationId
+    if session_id is None:
+        session_id = secrets.token_urlsafe(32)
 
-    if conversation_id is None:
-        conversation_id = secrets.token_urlsafe(32)
+        response.set_cookie(
+            key="sessionId",
+            value=session_id,
+            max_age=int(os.getenv("SESSION_TTL", "86400")),
+        )
 
     response = await chat_service.chat(
-        conversation_id=conversation_id,
+        conversation_id=session_id,
         user_message=request.message,
     )
 
-    print(conversation_id)
-
     return ChatResponse(
-        conversationId=conversation_id,
         response=response,
     )
