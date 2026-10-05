@@ -1,0 +1,15 @@
+# Environment
+.env
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# RAG / vector databases
+rag/vectorstore/
+vectorstore/
+
+# IDE
+.idea/
+.vscode/
