@@ -5,8 +5,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from rag.vector_store import create_vector_store
 
-
-DATA_DIR = Path("../data")
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
 def load_documents():

@@ -6,7 +6,8 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 load_dotenv()
 
-VECTORSTORE_DIR = Path("vectorstore")
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+VECTORSTORE_DIR = PROJECT_ROOT / "vectorstore"
 
 
 def create_embeddings() -> GoogleGenerativeAIEmbeddings:
