@@ -1,11 +1,13 @@
 import logging
 import secrets
 import os
+import redis.asyncio as redis
 from fastapi import APIRouter, Cookie, Response
 from pydantic import BaseModel, Field
 
 from memory.redis_memory import RedisConversationMemory
 from service.chat_service import ChatService
+from service.rate_limiter import RateLimiter
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,9 +18,18 @@ router = APIRouter(
 )
 
 
+redis_client = redis.from_url(
+    os.getenv("REDIS_URL"),
+    decode_responses=True,
+)
+
+
 memory = RedisConversationMemory(
-    redis_url=os.getenv("REDIS_URL"),
+    redis_client=redis_client,
     ttl=int(os.getenv("SESSION_TTL", "86400")),
+)
+rate_limiter = RateLimiter(
+    redis_client=redis_client
 )
 chat_service = ChatService(memory)
 
@@ -41,6 +52,12 @@ async def chat(
         session_id: str | None = Cookie(default=None, alias="sessionId"),
 ) -> ChatResponse:
     logger.info("Chat input: %s", request.message)
+    client_ip = request.client.host if request.client else "unknown"
+    allowed = await rate_limiter.is_allowed(client_ip)
+    if not allowed:
+        return ChatResponse(
+            response="You've reached today's chatbot usage limit. Please come back tomorrow."
+        )
 
     if session_id is None:
         session_id = secrets.token_urlsafe(32)

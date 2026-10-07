@@ -12,14 +12,11 @@ class MemoryUnavailableError(Exception):
 class RedisConversationMemory:
     def __init__(
         self,
-        redis_url: str,
+        redis_client: redis,
         ttl: int,
         key_prefix: str = "portfolio-assistant:chat:",
     ) -> None:
-        self._client = redis.from_url(
-            redis_url,
-            decode_responses=True,
-        )
+        self._client = redis_client
         self._ttl = ttl
         self._key_prefix = key_prefix
 
@@ -74,7 +71,7 @@ class RedisConversationMemory:
                 transaction=True
             ) as pipeline:
                 for message in messages:
-                    pipeline.rpush(
+                    await pipeline.rpush(
                         key,
                         json.dumps(
                             message,
@@ -82,8 +79,7 @@ class RedisConversationMemory:
                         ),
                     )
 
-                pipeline.expire(key, self._ttl)
-
+                await pipeline.expire(key, self._ttl)
                 await pipeline.execute()
 
         except RedisError as exc:
