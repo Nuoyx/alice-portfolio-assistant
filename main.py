@@ -1,9 +1,10 @@
 # main.py
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from api.chat_router import router as chat_router
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 # Initialize the application instance
 app = FastAPI()
 
@@ -29,3 +30,15 @@ def read_root():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError,
+):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "response": "Please enter a message between 1 and 1000 characters."
+        },
+    )

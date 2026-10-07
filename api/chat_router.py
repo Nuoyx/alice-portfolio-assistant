@@ -2,7 +2,7 @@ import logging
 import secrets
 import os
 from fastapi import APIRouter, Cookie, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from memory.redis_memory import RedisConversationMemory
 from service.chat_service import ChatService
@@ -24,7 +24,10 @@ chat_service = ChatService(memory)
 
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(
+        min_length=1,
+        max_length=1000,
+    )
 
 
 class ChatResponse(BaseModel):
