@@ -52,28 +52,39 @@ async def chat(
         response: Response,
         session_id: str | None = Cookie(default=None, alias="sessionId"),
 ) -> ChatResponse:
-    logger.info("Chat input: %s", chat_request.message)
-    client_ip = request.client.host if request.client else "unknown"
-    allowed = await rate_limiter.is_allowed(client_ip)
-    if not allowed:
+    try:
+        logger.info("Chat input: %s", chat_request.message)
+        client_ip = request.client.host if request.client else "unknown"
+        allowed = await rate_limiter.is_allowed(client_ip)
+        if not allowed:
+            return ChatResponse(
+                response="You've reached today's chatbot usage limit. Please come back tomorrow."
+            )
+
+        if session_id is None:
+            session_id = secrets.token_urlsafe(32)
+
+            response.set_cookie(
+                key="sessionId",
+                value=session_id,
+                max_age=int(os.getenv("SESSION_TTL", "86400")),
+            )
+
+        response = await chat_service.chat(
+            conversation_id=session_id,
+            user_message=chat_request.message,
+        )
+
         return ChatResponse(
-            response="You've reached today's chatbot usage limit. Please come back tomorrow."
+            response=response,
+        )
+    except Exception as e:
+        logger.exception("Unhandled exception in chat endpoint")
+        response.status_code = 500
+        return ChatResponse(
+            response=(
+                "Sorry, something went wrong. "
+                "Please try again later."
+            )
         )
 
-    if session_id is None:
-        session_id = secrets.token_urlsafe(32)
-
-        response.set_cookie(
-            key="sessionId",
-            value=session_id,
-            max_age=int(os.getenv("SESSION_TTL", "86400")),
-        )
-
-    response = await chat_service.chat(
-        conversation_id=session_id,
-        user_message=chat_request.message,
-    )
-
-    return ChatResponse(
-        response=response,
-    )
