@@ -2,7 +2,7 @@ import logging
 import secrets
 import os
 import redis.asyncio as redis
-from fastapi import APIRouter, Cookie, Response
+from fastapi import APIRouter, Cookie, Response, Request
 from pydantic import BaseModel, Field
 
 from memory.redis_memory import RedisConversationMemory
@@ -47,11 +47,12 @@ class ChatResponse(BaseModel):
 
 @router.post("", response_model=ChatResponse)
 async def chat(
-        request: ChatRequest,
+        request: Request,
+        chat_request: ChatRequest,
         response: Response,
         session_id: str | None = Cookie(default=None, alias="sessionId"),
 ) -> ChatResponse:
-    logger.info("Chat input: %s", request.message)
+    logger.info("Chat input: %s", chat_request.message)
     client_ip = request.client.host if request.client else "unknown"
     allowed = await rate_limiter.is_allowed(client_ip)
     if not allowed:
@@ -70,7 +71,7 @@ async def chat(
 
     response = await chat_service.chat(
         conversation_id=session_id,
-        user_message=request.message,
+        user_message=chat_request.message,
     )
 
     return ChatResponse(
